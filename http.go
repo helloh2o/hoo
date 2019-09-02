@@ -92,7 +92,7 @@ func (c *conn) tunnel(remote net.Conn) {
 		defer log.Println("===============client goroutine done================")
 		for {
 			n, er := client.Read(bufClient)
-			if er != nil {
+			if er != nil && n == 0{
 				break
 			}
 			if n > 0 {
@@ -114,9 +114,10 @@ func (c *conn) pipe(src net.Conn) {
 	ten := 1024 * 1024 * 10
 	remoteReader = src
 	buf = make([]byte, 32*1024)
+	limited := false
 	for {
 		nr, er := remoteReader.Read(buf)
-		if er != nil {
+		if er != nil  && nr == 0 {
 			break
 		}
 		if nr > 0 {
@@ -125,11 +126,10 @@ func (c *conn) pipe(src net.Conn) {
 				break
 			} else {
 				// limit speed > 10MB
-				if writen > ten && c.maxSpeed > 0 {
+				if writen > ten && c.maxSpeed > 0 && !limited{
 					limit := rate.NewLimiter(c.maxSpeed*1024, int(c.maxSpeed)*1024)
 					remoteReader = NewReader(src, limit)
-					buf = make([]byte, 32*1024)
-					writen = 0
+					limited = true
 				} else {
 					writen += nw
 				}
