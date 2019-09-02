@@ -126,7 +126,7 @@ func (c *conn) pipe(src net.Conn) {
 				break
 			} else {
 				// limit speed > 10MB
-				if writen > ten && c.maxSpeed > 0 && !limited{
+				if  !limited && writen > ten && c.maxSpeed > 0{
 					limit := rate.NewLimiter(c.maxSpeed*1024, int(c.maxSpeed)*1024)
 					remoteReader = NewReader(src, limit)
 					limited = true
