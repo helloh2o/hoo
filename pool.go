@@ -1,62 +1,102 @@
 package hox
-/*
+
 import (
-	"net"
 	"sync"
-	"log"
+	"time"
+	"fmt"
 )
 
 type Pool interface {
-	Get(string) net.Conn
-	Put(string, net.Conn)
-	Reset()
+	Put(string, *conn) bool
+	Remove(string, *conn)
+	Clean(string) bool
+	Manage()
 }
 
 type RmtPool struct {
 	sync.Mutex
-	queueMap map[string]chan net.Conn
+	queueMap map[string][]*conn
+	maxIdle  int
 }
 
 var pool Pool
 
 func init() {
 	p := new(RmtPool)
-	p.Reset()
+	p.maxIdle = 1000
+	p.queueMap = make(map[string][]*conn)
 	pool = p
+	go p.Manage()
+}
+func (rp *RmtPool) Manage() {
+	tk := time.NewTimer(time.Minute * 5)
+	for {
+		<-tk.C
+		fmt.Println("=============== timer check begin =============== ")
+		rp.Lock()
+		for ip, hub := range rp.queueMap {
+			check(ip, hub)
+		}
+		rp.Unlock()
+		fmt.Println("=============== timer check end =============== ")
+	}
 }
 
-func (rp *RmtPool) Reset() {
-	rp.queueMap = make(map[string]chan net.Conn)
-}
-
-func (rp *RmtPool) Get(host string) net.Conn {
-	defer rp.Unlock()
-	rp.Lock()
-	if hub, ok := rp.queueMap[host]; ok {
-		select {
-		case c := <-hub:
-			log.Printf("----Get pool conn for host %s----\n", host)
-			return c
-		default:
-			return nil
+func check(ip string, hub []*conn) {
+	now := time.Now().Unix()
+	tenMin := int64(300)
+	for i := 0; i < len(hub); i++ {
+		c := hub[i]
+		// idle ten minutes
+		if c.LastWrite+tenMin < now && c.LastRead+tenMin < now {
+			c.rwc.Close()
+			c.remote.Close()
+			/*// remove from queue
+			hub = append(hub[:i], hub[i+1:]...)*/
+			fmt.Printf("ip %s, conn closed -> idle timeout.\n", ip)
+			// maintain the correct index
+			//i--
 		}
 	}
-	return nil
 }
 
-func (rp *RmtPool) Put(host string, c net.Conn) {
+func (rp *RmtPool) Clean(ip string) bool {
 	defer rp.Unlock()
 	rp.Lock()
-	if hub, ok := rp.queueMap[host]; ok {
-		select {
-		case hub <- c:
-		default:
-			log.Printf("Queue for host '%s'is full !!  %d \n", host, len(hub))
-			return
+	hub := rp.queueMap[ip]
+	check(ip, hub)
+	return len(hub) < rp.maxIdle
+}
+
+func (rp *RmtPool) Put(ip string, c *conn) bool {
+	defer rp.Unlock()
+	rp.Lock()
+	if hub, ok := rp.queueMap[ip]; ok {
+		ltop := len(hub)
+		if ltop > rp.maxIdle {
+			return false
 		}
+		hub = append(hub, c)
+		rp.queueMap[ip] = hub
+		fmt.Printf("ip %s conn hub length %d \n", ip, ltop+1)
 	} else {
-		rp.queueMap[host] = make(chan net.Conn, 100)
-		rp.queueMap[host] <- c
+		hub = append([]*conn{}, c)
+		rp.queueMap[ip] = hub
+	}
+	return true
+}
+
+func (rp *RmtPool) Remove(ip string, rc *conn) {
+	defer rp.Unlock()
+	rp.Lock()
+	if hub, ok := rp.queueMap[ip]; ok {
+		for i, c := range hub {
+			if rc == c {
+				hub = append(hub[:i], hub[i+1:]...)
+				rp.queueMap[ip] = hub
+				break
+			}
+		}
+		fmt.Printf("Remove from hub , len %d\n", len(hub))
 	}
 }
-*/

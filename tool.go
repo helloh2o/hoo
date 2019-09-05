@@ -36,10 +36,11 @@ func parseReq(brc *bufio.Reader) (rawReqHeader bytes.Buffer, host, credential st
 			host = uriInfo.Host
 		}
 	}
+	req.Header.Add("HOST", host)
 	// rebuild ReqHeader
 	requestLine := fmt.Sprintf("%s %s %s\r\n", req.Method, req.URL.Path, req.Proto)
 	rawReqHeader.WriteString(requestLine)
-	req.Header.Add("Hox", "v1.0")
+	req.Header.Add("Hox", "v1.1")
 	for k, vs := range req.Header {
 		for _, v := range vs {
 			rawReqHeader.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
