@@ -163,11 +163,9 @@ func (c *conn) pipe(src net.Conn) {
 				if  !limited && writen > ten && c.maxSpeed > 0{
 					limit := rate.NewLimiter(c.maxSpeed*1024, int(c.maxSpeed)*1024)
 					remoteReader = NewReader(src, limit)
-					writen = 0
 					limited = true
-				} else {
-					writen += nw
 				}
+				writen += nw
 				c.LastWrite = time.Now().Unix()
 			}
 			if nr != nw {
