@@ -102,9 +102,6 @@ func (c *conn) handle() {
 			fmt.Println(err)
 			return
 		}
-		log.Println("=============== HTTP =====================")
-		c.pipe(remoteConn)
-		log.Println("=============== HTTP DONE =====================")
 		return
 	}
 	// build tunnel
