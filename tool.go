@@ -1,22 +1,22 @@
 package hox
 
 import (
-	"strings"
 	"bytes"
-	"net/url"
 	"fmt"
 	"net/http"
-	"bufio"
+	"net/url"
+	"strings"
 )
 
-func parseReq(brc *bufio.Reader) (rawReqHeader bytes.Buffer, host, credential string, connect bool, err error) {
-	req, err := http.ReadRequest(brc)
+func parseReq(c *conn, free bool) (rawReqHeader bytes.Buffer, host, credential string, connect bool, err error) {
+	req, err := http.ReadRequest(c.brc)
 	if err != nil {
+		err = &BadRequestError{"Read request timeout"}
 		return
 	}
 	if req.Method == "CONNECT" {
 		connect = true
-		req.RequestURI = "http://" + req.RequestURI
+		req.RequestURI = "https://" + req.RequestURI
 	} else {
 		req.Header.Del("Proxy-Connection")
 	}

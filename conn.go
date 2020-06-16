@@ -1,19 +1,16 @@
 package hox
 
 import (
-	"net"
 	"bufio"
 	"bytes"
 	"fmt"
-	"io"
 	"golang.org/x/time/rate"
+	"io"
+	"net"
 	"time"
-	"log"
-	"sync"
 )
 
 type conn struct {
-	LK        sync.Mutex
 	rwc       net.Conn
 	remote    net.Conn
 	brc       *bufio.Reader
@@ -23,51 +20,34 @@ type conn struct {
 	LastWrite int64
 }
 
-func (c *conn) lastRead() {
-	c.LK.Lock()
-	defer c.LK.Unlock()
-	c.LastRead = time.Now().Unix()
-}
-
-func (c *conn) lastWrite() {
-	c.LK.Lock()
-	defer c.LK.Unlock()
-	c.LastWrite = time.Now().Unix()
-}
-
 func (c *conn) auth(credential string) bool {
 	if c.server.isAuth() == false || c.server.validateAuth(credential) {
 		return true
 	}
 	return false
 }
-func (c *conn) handle() {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("panic recover connection serve ::", r)
-		}
-		c.rwc.Close()
-	}()
-	rawHttpHeader, remote, credential, connect, err := parseReq(c.brc)
+func (c *conn) serve() {
+	defer c.rwc.Close()
+	rawHttpHeader, remote, credential, connect, err := parseReq(c, c.server.Free)
 	if err != nil {
-		fmt.Println(err)
 		c.rwc.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n\r\n"))
 		return
 	}
-	remoteConn, err := net.DialTimeout("tcp", remote, time.Second*3)
-	ip, _, _ := net.SplitHostPort(c.rwc.RemoteAddr().String())
+	remoteConn, err := net.DialTimeout("tcp", remote, time.Second*5)
 	if err != nil {
 		return
 	}
 	defer func() {
 		// remove & close
-		pool.Remove(ip, c)
 		remoteConn.Close()
 	}()
-	if err != nil {
-		fmt.Println("getTunnelInfo -> ", err)
-		return
-	}
+	/*if credential == "" || c.auth(credential) == false {
+		msg503 := "HTTP/1.1 503 service unavailable\r\n\r\n"
+		_, err := c.rwc.Write([]byte(msg503))
+		if err != nil {
+			return
+		}
+	}*/
 	if c.auth(credential) == false {
 		// Require auth
 		var respBf bytes.Buffer
@@ -79,22 +59,9 @@ func (c *conn) handle() {
 	}
 	if connect {
 		msg200 := "HTTP/1.1 200 Connection established\r\n\r\n"
-		if ok := pool.Put(ip, c); ok {
-			// if connect, send 200
-			_, err := c.rwc.Write([]byte(msg200))
-			if err != nil {
-				return
-			}
-		} else if ok := pool.Clean(ip); ok {
-			if ok = pool.Put(ip, c); ok {
-				// if connect, send 200
-				_, err := c.rwc.Write([]byte(msg200))
-				if err != nil {
-					return
-				}
-			}
-		} else {
-			c.rwc.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n\r\n"))
+		// if connect, send 200
+		_, err := c.rwc.Write([]byte(msg200))
+		if err != nil {
 			return
 		}
 	} else {
@@ -102,36 +69,35 @@ func (c *conn) handle() {
 			fmt.Println(err)
 			return
 		}
-		return
 	}
 	// build tunnel
-	fmt.Println("tunnel,", c.rwc.RemoteAddr(), "<->", remote)
 	c.remote = remoteConn
 	c.tunnel()
 }
 
 func (c *conn) tunnel() {
-	defer func() {
-		// pull to pool
-		log.Println("===============tunnel goroutine done================")
-	}()
 	client := c.rwc
 	src := c.remote
+	defer func() {
+		//log.Println("===============tunnel serve goroutine done================")
+	}()
 	bufClient := make([]byte, 1024)
 	go func() {
-		defer log.Println("===============client goroutine done================")
+		defer func() {
+			src.Close()
+			//log.Println("===============client goroutine done================")
+		}()
 		for {
 			n, er := client.Read(bufClient)
-			if er != nil && n == 0{
+			if er != nil && n == 0 {
 				break
 			}
 			if n > 0 {
 				wn, ew := src.Write(bufClient[:n])
 				if ew != nil || wn != n {
-					fmt.Println("------------- client connection write to error -------------")
+					//fmt.Println("------------- client connection write to error -------------")
 					break
 				}
-				c.LastRead = time.Now().Unix()
 			}
 		}
 	}()
@@ -142,13 +108,13 @@ func (c *conn) pipe(src net.Conn) {
 	var remoteReader io.Reader
 	var buf []byte
 	writen := 0
-	ten := 1024 * 1024 * 5
+	mb5 := 1024 * 1024 * 5
 	remoteReader = src
 	buf = make([]byte, 32*1024)
 	limited := false
 	for {
 		nr, er := remoteReader.Read(buf)
-		if er != nil  && nr == 0 {
+		if er != nil && nr == 0 {
 			break
 		}
 		if nr > 0 {
@@ -156,14 +122,13 @@ func (c *conn) pipe(src net.Conn) {
 			if ew != nil {
 				break
 			} else {
-				// limit speed > 10MB
-				if  !limited && writen > ten && c.maxSpeed > 0{
+				// limit speed > 5MB
+				if !limited && writen > mb5 && c.maxSpeed > 0 {
 					limit := rate.NewLimiter(c.maxSpeed*1024, int(c.maxSpeed)*1024)
 					remoteReader = NewReader(src, limit)
 					limited = true
 				}
 				writen += nw
-				c.LastWrite = time.Now().Unix()
 			}
 			if nr != nw {
 				break

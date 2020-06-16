@@ -1,12 +1,12 @@
 package hox
 
 import (
-	"net"
-	"encoding/base64"
-	"log"
 	"bufio"
 	"crypto/tls"
+	"encoding/base64"
 	"golang.org/x/time/rate"
+	"log"
+	"net"
 	"strings"
 )
 
@@ -17,10 +17,11 @@ type Server struct {
 	cert       string
 	key        string
 	maxSpeed   rate.Limit
+	Free       bool
 }
 
-func NewServer(addr, credential string, cert, key string, maxSpeed float64) *Server {
-	return &Server{addr: addr, credential: base64.StdEncoding.EncodeToString([]byte(credential)), cert: cert, key: key, maxSpeed: rate.Limit(maxSpeed)}
+func NewServer(addr, credential string, cert, key string, maxSpeed float64, free bool) *Server {
+	return &Server{addr: addr, credential: base64.StdEncoding.EncodeToString([]byte(credential)), cert: cert, key: key, maxSpeed: rate.Limit(maxSpeed), Free: free}
 }
 
 func (s *Server) Start() {
@@ -41,19 +42,21 @@ func (s *Server) Start() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer s.listener.Close()
+	defer func() {
+		s.listener.Close()
+	}()
 	if s.credential != "" {
 		log.Printf("user %s for auth \n", s.credential)
 	}
-	log.Printf("TCP server listen on %s, Max speed %v\n", s.addr, s.maxSpeed)
+	log.Printf("hox server listen on %s, Max speed %v\n", s.addr, s.maxSpeed)
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
-			log.Println(err)
 			continue
 		}
-		go s.newConn(conn).handle()
+		go s.newConn(conn).serve()
 	}
+	log.Printf("hox server stopped.")
 }
 
 func (s *Server) newConn(rwc net.Conn) *conn {
