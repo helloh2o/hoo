@@ -2,27 +2,49 @@ package hox
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"golang.org/x/time/rate"
 	"io"
+	"log"
 	"net"
 	"time"
 )
 
 type conn struct {
-	rwc       net.Conn
-	remote    net.Conn
-	brc       *bufio.Reader
-	server    *Server
-	maxSpeed  rate.Limit
-	LastRead  int64
-	LastWrite int64
+	user       string
+	rwc        net.Conn
+	remote     net.Conn
+	brc        *bufio.Reader
+	server     *Server
+	maxSpeed   rate.Limit
+	TotalRead  int64
+	TotalWrite int64
 }
 
 func (c *conn) auth(credential string) bool {
-	if c.server.isAuth() == false || c.server.validateAuth(credential) {
+	if c.server.isAuth() == false {
 		return true
+	} else {
+		ok, user := c.server.validateAuth(credential)
+		if ok {
+			c.user = user
+			// verify traffic
+			tr, ok := clientsTraffic.Load(c.user)
+			if !ok {
+				onConnecting <- c.user
+				return true
+			} else {
+				v, _ := tr.(int64)
+				if v > 0 {
+					return true
+				} else {
+					c.rwc.Close()
+					log.Printf("Close traffic use up user %s", c.user)
+					return false
+				}
+			}
+
+		}
 	}
 	return false
 }
@@ -40,15 +62,22 @@ func (c *conn) serve() {
 	defer func() {
 		// remove & close
 		remoteConn.Close()
+		// record
+		total := c.TotalWrite + c.TotalRead
+		if record, ok := records.Load(c.user); ok {
+			usedBytes, _ := record.(int64)
+			total += usedBytes
+		}
+		records.Store(c.user, total)
 	}()
-	/*if credential == "" || c.auth(credential) == false {
+	if credential == "" || c.auth(credential) == false {
 		msg503 := "HTTP/1.1 503 service unavailable\r\n\r\n"
 		_, err := c.rwc.Write([]byte(msg503))
 		if err != nil {
 			return
 		}
-	}*/
-	if c.auth(credential) == false {
+	}
+	/*if c.auth(credential) == false {
 		// Require auth
 		var respBf bytes.Buffer
 		respBf.WriteString("HTTP/1.1 407 Proxy Authentication Required\r\n")
@@ -56,7 +85,7 @@ func (c *conn) serve() {
 		respBf.WriteString("\r\n")
 		respBf.WriteTo(c.rwc)
 		return
-	}
+	}*/
 	if connect {
 		msg200 := "HTTP/1.1 200 Connection established\r\n\r\n"
 		// if connect, send 200
@@ -98,6 +127,7 @@ func (c *conn) tunnel() {
 					//fmt.Println("------------- client connection write to error -------------")
 					break
 				}
+				c.TotalRead += int64(wn)
 			}
 		}
 	}()
@@ -129,6 +159,7 @@ func (c *conn) pipe(src net.Conn) {
 					limited = true
 				}
 				writen += nw
+				c.TotalWrite += int64(nw)
 			}
 			if nr != nw {
 				break

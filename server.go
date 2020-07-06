@@ -71,10 +71,17 @@ func (s *Server) isAuth() bool {
 	return s.credential != ""
 }
 
-func (s *Server) validateAuth(basicCredential string) bool {
+func (s *Server) validateAuth(basicCredential string) (bool, string) {
 	c := strings.Split(basicCredential, " ")
-	if len(c) == 2 && strings.EqualFold(c[0], "Basic") && c[1] == s.credential {
-		return true
+	if len(c) == 2 && strings.EqualFold(c[0], "Basic") {
+		//  && c[1] == s.credential
+		auth, err := base64.StdEncoding.DecodeString(c[1])
+		if err != nil {
+			return false, ""
+		}
+		//log.Printf("Auth is %s", string(auth))
+		dats := strings.Split(string(auth), ":")
+		return true, dats[0]
 	}
-	return false
+	return false, ""
 }

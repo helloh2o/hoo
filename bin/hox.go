@@ -15,13 +15,14 @@ var (
 	cert = flag.String("c", "", "cert file")
 	key  = flag.String("k", "", "cert key file")
 	host = flag.String("host", "", "host name")
-	auth = flag.String("auth", "", "eg-> name:pass")
+	auth = flag.String("auth", "admin:admin", "eg-> name:pass")
 	max  = flag.Float64("max", 720, "max speed of connection (KB/s)")
 	free = flag.Bool("free", false, "free server or not")
 )
 
 func main() {
 	flag.Parse()
+	hox.SyncInit()
 	if *host != "" {
 		*cert = fmt.Sprintf("/root/.caddy/acme/acme-v02.api.letsencrypt.org/sites/%s/%s.crt", *host, *host)
 		*key = fmt.Sprintf("/root/.caddy/acme/acme-v02.api.letsencrypt.org/sites/%s/%s.key", *host, *host)
