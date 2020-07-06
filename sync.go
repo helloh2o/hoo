@@ -12,7 +12,6 @@ import (
 var (
 	records = sync.Map{}
 	tk      = time.Tick(time.Minute)
-	//rpc        = flag.String("rpc", "149.28.78.58:20433", "sync rpc address")
 	rpc            = flag.String("rpc", "127.0.0.1:2020", "sync rpc address")
 	clientsTraffic = sync.Map{}
 	onConnecting   chan string
