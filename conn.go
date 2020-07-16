@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"golang.org/x/time/rate"
 	"io"
-	"log"
 	"net"
 	"time"
 	"bytes"
