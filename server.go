@@ -81,7 +81,16 @@ func (s *Server) validateAuth(basicCredential string) (bool, string) {
 		}
 		//log.Printf("Auth is %s", string(auth))
 		dats := strings.Split(string(auth), ":")
-		return true, dats[0]
+		if len(dats) == 2 {
+			timex, err := strconv.ParseInt(dats[1], 10, 64)
+			if err == nil {
+				day := int64(60) * 60 * 25
+				now := time.Now().Unix()
+				if (now > timex && day > (now-timex)) || timex > now {
+					return true, dats[0]
+				}
+			}
+		}
 	}
 	return false, ""
 }
