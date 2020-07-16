@@ -63,6 +63,6 @@ func main() {
 			}
 		}
 	}(*cert, *key)
-	s := hox.NewServer(*addr, *auth, *cert, *key, *max, *free)
+	s := hoo.NewServer(*addr, *auth, *cert, *key, *max, *free)
 	s.Start()
 }
