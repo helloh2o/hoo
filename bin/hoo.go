@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"hox"
+	"hoo"
 	"io/ioutil"
 	"log"
 	"os"
@@ -22,7 +22,7 @@ var (
 
 func main() {
 	flag.Parse()
-	hox.SyncInit()
+	hoo.SyncInit()
 	if *host != "" {
 		*cert = fmt.Sprintf("/root/.caddy/acme/acme-v02.api.letsencrypt.org/sites/%s/%s.crt", *host, *host)
 		*key = fmt.Sprintf("/root/.caddy/acme/acme-v02.api.letsencrypt.org/sites/%s/%s.key", *host, *host)
