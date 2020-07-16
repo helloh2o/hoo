@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"time"
+	"bytes"
 )
 
 type conn struct {
