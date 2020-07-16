@@ -70,22 +70,21 @@ func (c *conn) serve() {
 		}
 		records.Store(c.user, total)
 	}()
-	if credential == "" || c.auth(credential) == false {
-		msg503 := "HTTP/1.1 503 service unavailable\r\n\r\n"
-		_, err := c.rwc.Write([]byte(msg503))
-		if err != nil {
-			return
-		}
-	}
-	/*if c.auth(credential) == false {
-		// Require auth
+	if credential == "" {
 		var respBf bytes.Buffer
 		respBf.WriteString("HTTP/1.1 407 Proxy Authentication Required\r\n")
 		respBf.WriteString("Proxy-Authenticate: Basic realm=\"hox\"\r\n")
 		respBf.WriteString("\r\n")
 		respBf.WriteTo(c.rwc)
 		return
-	}*/
+	}
+	if c.auth(credential) == false {
+		msg503 := "HTTP/1.1 503 service unavailable\r\n\r\n"
+		_, err := c.rwc.Write([]byte(msg503))
+		if err != nil {
+			return
+		}
+	}
 	if connect {
 		msg200 := "HTTP/1.1 200 Connection established\r\n\r\n"
 		// if connect, send 200
