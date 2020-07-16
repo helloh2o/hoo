@@ -40,7 +40,7 @@ func (c *conn) auth(credential string) bool {
 					return true
 				} else {
 					c.rwc.Close()
-					log.Printf("Close traffic use up user %s", c.user)
+					//log.Printf("Close traffic use up user %s", c.user)
 					return false
 				}
 			}
