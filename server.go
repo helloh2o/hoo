@@ -81,7 +81,6 @@ func (s *Server) validateAuth(basicCredential string) (bool, string) {
 		if err != nil {
 			return false, ""
 		}
-		log.Printf("Auth is %s", string(auth))
 		dats := strings.Split(string(auth), ":")
 		if len(dats) == 2 {
 			timex, err := strconv.ParseInt(dats[1], 10, 64)
@@ -93,6 +92,7 @@ func (s *Server) validateAuth(basicCredential string) (bool, string) {
 				}
 			}
 		}
+		log.Printf("Bad Auth is %s", string(auth))
 	}
 	return false, ""
 }
