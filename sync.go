@@ -26,11 +26,10 @@ func SyncInit() {
 	onConnecting = make(chan string)
 	go func() {
 		for {
-			d := client.NewPeer2PeerDiscovery("tcp@"+*rpc, "")
-			xclient := client.NewXClient("TR", client.Failtry, client.RandomSelect, d, client.DefaultOption)
-			defer xclient.Close()
 			select {
 			case <-tk:
+				d := client.NewPeer2PeerDiscovery("tcp@"+*rpc, "")
+				xclient := client.NewXClient("TR", client.Failtry, client.RandomSelect, d, client.DefaultOption)
 				records.Range(func(user, record interface{}) bool {
 					mb := 1024 * 1024
 					usedBytes, _ := record.(int64)
@@ -53,6 +52,7 @@ func SyncInit() {
 					}
 					return true
 				})
+				xclient.Close()
 			case uuid := <-onConnecting:
 				syncTr(xclient, uuid, 0)
 			}
