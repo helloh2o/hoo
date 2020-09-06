@@ -1,2 +1,2 @@
 # hox
-A fast, light weight HTTP,TLS  proxy with basic auth & speed limiter
+A fast, light weight HTTP,TLS Tunnel proxy with basic auth & speed limiter & Traffic synchronize
